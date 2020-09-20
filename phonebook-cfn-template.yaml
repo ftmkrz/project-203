@@ -186,10 +186,27 @@ Resources:
               yum install amazon-ecr-credential-helper -y
               mkdir -p /home/ec2-user/.docker
               cd /home/ec2-user/.docker
-              echo '{"credsStore": "ecr-login"}' > config.json
+              echo '{"credsStore": "ecr-login"}' > config.json 
+              aws ecr create-repository \ 
+                --repository-name ${APP_REPO_NAME} \ 
+                --image-scannig-configuration scanOnPush=false \ 
+                --image-tag-immutability MUTABLE \ 
+                --region ${AWS::Region} 
+              docker build --force-rm -t "${ECR_REGISTRY}/${APP_REPO_NAME}:latest" ${GITHUB_REPO}
+              docker push "${ECR_REGISTRY}/${APP_REPO_NAME}:latest" 
+              mkdir -p /home/ec2-user/phonebook 
+              cd /home/ec2-user/phonebook 
+              cat << EOF | tee .env 
+              ECR_REGISTRY=${ECR_REGISTRY}
+              APP_REPO_NAME+${APP_REPO_NAME}
+              EOF 
+              curl -o "docker-compose.yaml" -L ${GIT_FILE_URL}docker-compose.yaml 
+              curl -o "init.sql" -L ${GIT_FILE_URL}init.sql 
+              docker-compose config | docker stack deploy --with-registry-auth -c - phonebook
             - ECR_REGISTRY: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com
               APP_REPO_NAME: clarusway-repo/phonebook-app
               GITHUB_REPO: https://github.com/callahan-cw/project-203.git
+              GITHUB_FILE_URL: https://raw.githubusercontent.com/ftmkrz/project-203/master/
 
   DockerManager2:
     Type: "AWS::EC2::Instance"
